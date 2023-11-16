@@ -13,11 +13,12 @@ import console.utilities.sequences as sequences
 # %%
 # Create acquisition control instance
 configuration = "../device_config.yaml"
-acq = AcquistionControl(configuration_file=configuration, console_log_level=logging.WARNING, file_log_level=logging.DEBUG)
+acq = AcquistionControl(configuration_file=configuration, console_log_level=logging.INFO, file_log_level=logging.DEBUG)
 
 # %%
 # Construct and plot sequence
-seq = sequences.se_spectrum.constructor(echo_time=12e-3, rf_duration=400e-6, use_sinc=True)
+# seq = sequences.se_spectrum.constructor(echo_time=12e-3, rf_duration=200e-6, use_sinc=False)
+seq = sequences.fid_spectrum.constructor(rf_duration=200e-6, time_bw_product=4, adc_duration=2e-3, use_sinc=False)
 
 # Optional:
 acq.seq_provider.from_pypulseq(seq)
@@ -26,13 +27,13 @@ fig, ax = plot_unrolled_sequence(seq_unrolled)
 
 # %%
 # Larmor frequency:
-f_0 = 2037729.6875
+f_0 = 2036468.75
 
 # Define acquisition parameters
 params = AcquisitionParameter(
     larmor_frequency=f_0,
-    b1_scaling=2.5,
-    adc_samples=500,
+    b1_scaling=4.5,
+    adc_samples=320,
     gradient_offset=Dimensions(0, 0, 0),
     num_averages=1,
 )
@@ -46,7 +47,7 @@ acq_data: AcquisitionData = acq.run(parameter=params, sequence=seq)
 data = np.mean(acq_data.raw, axis=0)[0].squeeze()
 
 # FFT
-data_fft = np.fft.fftshift(np.fft.fft(data))
+data_fft = np.fft.fftshift(np.fft.fft(np.fft.fftshift(data)))
 fft_freq = np.fft.fftshift(np.fft.fftfreq(data.size, acq_data.dwell_time))
 
 # Print peak height and center frequency
@@ -70,3 +71,5 @@ ax.set_xlim([-20e3, 20e3])
 ax.set_ylim([0, max_spec*1.05])
 ax.set_ylabel("Abs. FFT Spectrum [a.u.]")
 _ = ax.set_xlabel("Frequency [Hz]")
+
+# %%
