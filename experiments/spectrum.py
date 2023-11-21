@@ -41,7 +41,6 @@ params = AcquisitionParameter(
 # Perform acquisition
 acq_data: AcquisitionData = acq.run(parameter=params, sequence=seq)
 
-# %%
 # First argument data from channel 0 and 1,
 # second argument contains the phase corrected echo
 data = np.mean(acq_data.raw, axis=0)[0].squeeze()
@@ -66,7 +65,7 @@ print("Acquisition data shape: ", acq_data.raw.shape)
 
 # Plot spectrum
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-ax.plot(fft_freq, np.abs(data_fft))    
+ax.plot(fft_freq, np.abs(data_fft))
 ax.set_xlim([-20e3, 20e3])
 ax.set_ylim([0, max_spec*1.05])
 ax.set_ylabel("Abs. FFT Spectrum [a.u.]")
