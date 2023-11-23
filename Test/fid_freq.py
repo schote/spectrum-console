@@ -39,7 +39,7 @@ rf_duration = 250e-6
 num_samples = 5000
 adc_duration = 4e-3 
 
-fs = 5000 # Abtastrate
+fs = 8000 # Abtastrate
 
 
 # Zeitvektor
@@ -51,8 +51,8 @@ rf_block[200:801] = 1
 
 # Trapez-Signal
 rf_trap = np.full(250, fill_value=1, dtype=float)
-rf_trap[:100] = np.linspace(0, 1, 100) #**2
-rf_trap[-100:] = np.linspace(1, 0, 100) #**2
+rf_trap[:50] = np.linspace(0, 1, 50) #**2
+rf_trap[-50:] = np.linspace(1, 0, 50) #**2
 
 # Chirp parameter
 1900000.0000
@@ -71,6 +71,7 @@ chirp_waveform = np.exp(1j * (2 * pi * chirp_start_freq * t + pi
 rf_pulse_block = pp.make_arbitrary_rf(
     signal=rf_block,
     flip_angle=pi/2,
+    time_bw_product=4,
     system=system,
 )
 

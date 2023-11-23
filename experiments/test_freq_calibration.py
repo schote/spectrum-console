@@ -18,7 +18,10 @@ acq = AcquistionControl(configuration_file=configuration, console_log_level=logg
 # %%
 # Construct and plot sequence
 seq = sequences.se_spectrum.constructor(echo_time=12e-3, rf_duration=200e-6, time_bw_product=4, pulse_type="sinc")
-# seq = sequences.fid_spectrum.constructor(rf_duration=200e-6, time_bw_product=4, adc_duration=2e-3, pulse_type="sinc")
+# seq = sequences.fid_spectrum.constructor(rf_duration=200e-6, time_bw_product=4, pulse_type="sinc")
+
+time_bw_product = seq.time_bw_product
+rf_duration = seq.get_definition("RF duration")
 
 # Optional:
 acq.seq_provider.from_pypulseq(seq)
@@ -57,9 +60,12 @@ for freq in freq_range:
 
     # Add information to acquisition data
     acq_data.add_info({
+        # "calculated_bandwidth": time_bw_product / rf_duration,
+        # "time_bw_product": time_bw_product,
+        # "rf_duration": rf_duration,
+        # "diagram_path": "frequency_spectrum.png",
         "true f0": f_0 - f_0_offset,
         "magnitude spectrum max": max_spec
-        
     })
 
     print(f"Frequency offset [Hz]: {f_0_offset}, new frequency f0 [Hz]: {f_0 - f_0_offset}")

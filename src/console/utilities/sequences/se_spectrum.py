@@ -9,7 +9,7 @@ from console.utilities.sequences.system_settings import system
 ADC_DURATION = 4e-3
 
 
-def constructor(echo_time: float = 12e-3, rf_duration: float = 400e-6, time_bw_product: float = 8, adc_duration: float = 4e-3, pulse_type: str = "trap") -> pp.Sequence:
+def constructor(echo_time: float = 12e-3, rf_duration: float = 400e-6, time_bw_product: float = 8, pulse_type: str = "trap") -> pp.Sequence:
     
     """Construct spin echo spectrum sequence.
 
@@ -19,8 +19,6 @@ def constructor(echo_time: float = 12e-3, rf_duration: float = 400e-6, time_bw_p
         Echo time in s, by default 12e-3
     rf_duration, optional
         RF duration in s, by default 400e-6
-    use_sinc, optional
-        RF pulse type, if true sinc pulse is used, rect otherwise, by default True
 
     Returns
     -------
@@ -32,7 +30,8 @@ def constructor(echo_time: float = 12e-3, rf_duration: float = 400e-6, time_bw_p
         Sequence timing check failed
     """
     seq = pp.Sequence(system=system)
-    seq.set_definition("Name", "se_spectrum")
+    seq_name = f"se_spectrum_{pulse_type}"
+    seq.set_definition("Name", seq_name)
 
     if pulse_type == "sinc":
         rf_90 = pp.make_sinc_pulse(system=system, flip_angle=pi / 2, duration=rf_duration, apodization=0.5, time_bw_product=time_bw_product)
@@ -44,10 +43,10 @@ def constructor(echo_time: float = 12e-3, rf_duration: float = 400e-6, time_bw_p
 
     elif pulse_type == "trap":
         rf_trap = np.full(250, fill_value=1, dtype=float)
-        rf_trap[:100] = np.linspace(0, 1, 100)
-        rf_trap[-100:] = np.linspace(1, 0, 100)
-        rf_90 = pp.make_arbitrary_rf(signal=rf_trap, flip_angle=pi/2, system=system)
-        rf_180 = pp.make_arbitrary_rf(signal=rf_trap, flip_angle=pi, system=system)
+        rf_trap[:50] = np.linspace(0, 1, 50)
+        rf_trap[-50:] = np.linspace(1, 0, 50)
+        rf_90 = pp.make_arbitrary_rf(signal=rf_trap, flip_angle=pi/2, time_bw_product=time_bw_product, system=system)
+        rf_180 = pp.make_arbitrary_rf(signal=rf_trap, flip_angle=pi, time_bw_product=time_bw_product, system=system)
     else:
             raise ValueError("Invalid pulse_type. Choose 'sinc', 'block', or 'trap'.")
         
