@@ -20,35 +20,38 @@ acq = AcquistionControl(configuration_file=configuration, console_log_level=logg
 # Construct sequence
 seq, traj = sequences.tse.tse_2d.constructor(
     echo_time=20e-3,
-    repetition_time=300e-3,
+    repetition_time=600e-3,
     etl=1,
-    gradient_correction=510e-6,
+    gradient_correction=310e-6,
     rf_duration=200e-6,
     ro_bandwidth=20e3,
-    fov=Dimensions(x=220e-3, y=220e-3, z=225e-3),
+    # fov=Dimensions(x=220e-3, y=220e-3, z=225e-3),
+    fov=Dimensions(x=120e-3, y=120e-3, z=120e-3),
+    n_enc=Dimensions(x=32, y=32, z=0)
     # n_enc=Dimensions(x=64, y=64, z=0)
-    n_enc=Dimensions(x=128, y=128, z=0)
+    # n_enc=Dimensions(x=128, y=128, z=0)
 )
 
 # %%
 # Plot sequence section
-acq.seq_provider.from_pypulseq(seq)
-seq_unrolled = acq.seq_provider.unroll_sequence(larmor_freq=2e6, grad_offset=Dimensions(0, 0, 0))
-fig, ax = plot_unrolled_sequence(seq_unrolled, seq_range=(0, 640000), output_limits=[200, 6000, 6000, 6000])
+# acq.seq_provider.from_pypulseq(seq)
+# seq_unrolled = acq.seq_provider.unroll_sequence(larmor_freq=2e6, grad_offset=Dimensions(0, 0, 0))
+# fig, ax = plot_unrolled_sequence(seq_unrolled, seq_range=(0, 640000), output_limits=[200, 6000, 6000, 6000])
 
 
 # %%
 # Larmor frequency:
 # f_0 = 1964390.0 # leiden
-f_0 = 2036708
+f_0 = 2037096
 
 # Define acquisition parameters
 params = AcquisitionParameter(
     larmor_frequency=f_0,
     # b1_scaling=2.9623,    # leiden
-    # b1_scaling=6.5,   # berlin
-    b1_scaling=10.0,     # scope
-    adc_samples=512,
+    # b1_scaling=6.5,       # berlin
+    # b1_scaling=10.0,      # scope
+    b1_scaling=2.23,    # 8 cm ball PTB
+    adc_samples=256,
     downsampling_rate=200,
     fov_scaling=Dimensions(
         # Ball phantom
@@ -63,15 +66,19 @@ params = AcquisitionParameter(
         # x=0.825,
         # y=0.275,
 
-        # Scope
-        x=1.,
-        y=1.,
-        z=1.,
+        # # Scope
+        # x=1.,
+        # y=1.,
+        # z=1.,
+
+        x=0.5,
+        y=0.3,
+        z=0.
     ),
     gradient_offset=Dimensions(0, 0, 0),
-    num_averages=1,
-    # num_averages=10,
-    # averaging_delay=2,
+    # num_averages=1,
+    num_averages=5,
+    averaging_delay=2,
 )
 
 # Perform acquisition
@@ -79,14 +86,14 @@ acq_data: AcquisitionData = acq.run(parameter=params, sequence=seq)
 
 # %%
 # Load saved data
-raw = np.load("/home/schote01/spcm-console/2023-11-01-session/2023-11-01-110449-2d_tse_v1/raw_data.npy")
-ksp = np.mean(raw, axis=0)[0].squeeze()
+# raw = np.load("/home/schote01/spcm-console/2023-11-01-session/2023-11-01-110449-2d_tse_v1/raw_data.npy")
+# ksp = np.mean(raw, axis=0)[0].squeeze()
 
 # %%
 
 # First argument data from channel 0 and 1,
 # second argument contains the phase corrected echo
-# ksp = np.mean(acq_data.raw, axis=0)[0].squeeze()
+ksp = np.mean(acq_data.raw, axis=0)[0].squeeze()
 
 # Use scipy decimate function to reduce k-space readout from 500 to 128 
 n_pe = ksp.shape[0]
@@ -107,8 +114,7 @@ plt.show()
 # %%
 
 acq_data.add_info({
-    "comment": "Lukas thumb",
-    "processing": "512 ro samples from DDC, scipy decimation to 64"
+    "subject": "sphere, 8 cm diameter"
 })
 
 acq_data.write(save_unprocessed=True)
