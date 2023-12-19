@@ -11,11 +11,11 @@ ADC_DURATION = 4e-3
 
 
 def constructor(
-    n_steps: int = 10,
-    repetition_time: float = 1000,
+    n_steps: int = 50,
+    repetition_time: float = 4,
     echo_time: float = 12e-3,
-    rf_duration: float = 400e-6,
-    flip_angle_range=(-pi/4, pi/4),
+    rf_duration: float = 200e-6,
+    flip_angle_range=(pi/4, 3*pi/2),
     pulse_type: str = "block",      
 ) -> tuple[pp.Sequence, np.ndarray]:
     """Construct transmit adjust sequence.
@@ -83,6 +83,6 @@ def constructor(
     return seq, flip_angles
     
 # %%
-seq, _ = constructor()
-seq.plot()
+# seq, _ = constructor()
+# seq.plot()
 # %%

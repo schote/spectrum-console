@@ -14,7 +14,7 @@ def constructor(
     n_steps: int = 1,
     repetition_time: float = 4,
     rf_duration: float = 200e-6,
-    flip_angle_range=(-pi/4, pi/4),
+    flip_angle_range=(pi/4, 3*pi/2),
     pulse_type: str = "sinc", 
     ) -> tuple[pp.Sequence, np.ndarray]:
     """Construct transmit adjust sequence.
@@ -74,6 +74,6 @@ def constructor(
 
 
 # %%
-seq, _ = constructor()
-seq.plot()
+# seq, _ = constructor()
+# seq.plot()
 # %%

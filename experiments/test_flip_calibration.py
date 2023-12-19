@@ -32,22 +32,14 @@ flip_angle_array = []
 amplitude_lists = []
 # Larmor frequency:
 f_0 = 2036468.75
-
-# 10 measurement per flip angle
-meas_per_angle = 10
-
-for flip_angle in flip_angles:
-    amplitude_list = []
     
-    params = AcquisitionParameter(
-        larmor_frequency=f_0,
-        b1_scaling=4.5,
-        num_averages=1,
-        flip_angle=flip_angle,
-    )
-
-    for measurement in range(meas_per_angle):
-        acq_data: AcquisitionData = acq.run(parameter=params, sequence=seq)
+params = AcquisitionParameter(
+    larmor_frequency=f_0,
+    b1_scaling=4.5,
+    num_averages=10,
+    averaging_delay=5,
+)
+acq_data: AcquisitionData = acq.run(parameter=params, sequence=seq)
 
     # %%
         data = np.mean(acq_data.raw, axis=0)[0].squeeze()

@@ -17,12 +17,8 @@ acq = AcquistionControl(configuration_file=configuration, console_log_level=logg
 
 # %%
 # Construct and plot sequence
-# seq = sequences.se_spectrum.constructor(
-#     echo_time=20e-3,
-#     rf_duration=200e-6,
-#     use_sinc=False
-# )
-seq = sequences.se_spectrum_dl.constructor(rf_duration=200e-6, use_sinc=False, adc_ro_duration=4e-3, adc_noise_duration=100e-3)
+seq = sequences.se_spectrum.constructor(echo_time=12e-3, rf_duration=200e-6, pulse_type="block")
+# seq = sequences.se_spectrum_dl.constructor(echo_time=12e-3, rf_duration=200e-6, use_sinc=False, adc_ro_duration=4e-3, adc_noise_duration=100e-3)
 
 # Optional:
 acq.seq_provider.from_pypulseq(seq)
@@ -32,14 +28,14 @@ fig, ax = plot_unrolled_sequence(seq_unrolled)
 # %%
 # Larmor frequency:
 # f_0 = 2038555   # Berlin system
-f_0 = 2039505
+f_0 = 2033500.0
 # f_0 = 1964690.0   # Leiden system
 
 # Define acquisition parameters
 params = AcquisitionParameter(
     larmor_frequency=f_0,
     b1_scaling=2.1, # 8 cm phantom
-    # decimation=200,
+    decimation=200,
 )
 
 
@@ -72,8 +68,6 @@ ax.set_ylim([0, max_spec*1.05])
 ax.set_ylabel("Abs. FFT Spectrum [a.u.]")
 _ = ax.set_xlabel("Frequency [Hz]")
 # %%
-<<<<<<< HEAD
-=======
 
 # Add information to acquisition data
 acq_data.add_info({
@@ -89,4 +83,3 @@ acq_data.write(save_unprocessed=True)
 # %%
 del acq
 # %%
->>>>>>> 69d9da924deb30a4194f4e36b0c027bf6a6002f7
