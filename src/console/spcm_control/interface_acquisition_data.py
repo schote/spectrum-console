@@ -1,9 +1,10 @@
-"""Interface class for acquisition parameters."""
+"""Interface class for acquisition data."""
 import json
 import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 
@@ -33,7 +34,7 @@ class AcquisitionData:
     dwell_time: float
     """Dwell time of down-sampled raw data in seconds."""
 
-    meta: dict = field(default_factory=dict)
+    meta: dict[str, Any] = field(default_factory=dict)
     """Meta data dictionary for additional acquisition info.
     Dictionary is updated (extended) by post-init method with some general information."""
 
@@ -58,6 +59,7 @@ class AcquisitionData:
                 "folder_name": datetime_now.strftime("%Y-%m-%d-%H%M%S-") + seq_name,
                 "raw_dimensions": [_raw.shape for _raw in self.raw] if isinstance(self.raw, list) else self.raw.shape,
                 # "unprocessed_dimensions": self.unprocessed_data.shape if self.unprocessed_data is not None else None,
+                "dwell_time": self.dwell_time,
                 "acquisition_parameter": self.acquisition_parameters.dict(),
                 "sequence": {
                     "name": seq_name,
@@ -113,7 +115,7 @@ class AcquisitionData:
 
         log.info("Saved acquisition data to: %s", acq_folder_path)
 
-    def add_info(self, info: dict) -> None:
+    def add_info(self, info: dict[str, Any]) -> None:
         """Add entries to meta data dictionary.
 
         Parameters
