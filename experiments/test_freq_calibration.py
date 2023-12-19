@@ -60,10 +60,10 @@ for freq in freq_range:
 
     # Add information to acquisition data
     acq_data.add_info({
-        # "calculated_bandwidth": time_bw_product / rf_duration,
-        # "time_bw_product": time_bw_product,
-        # "rf_duration": rf_duration,
-        # "diagram_path": "frequency_spectrum.png",
+        "calculated_bandwidth": time_bw_product / rf_duration,
+        "time_bw_product": time_bw_product,
+        "rf_duration": rf_duration,
+        # "pulse_type": pulse_type,
         "true f0": f_0 - f_0_offset,
         "magnitude spectrum max": max_spec
     })

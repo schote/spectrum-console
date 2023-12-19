@@ -71,7 +71,7 @@ chirp_waveform = np.exp(1j * (2 * pi * chirp_start_freq * t + pi
 rf_pulse_block = pp.make_arbitrary_rf(
     signal=rf_block,
     flip_angle=pi/2,
-    time_bw_product=4,
+    time_bw_product=8,
     system=system,
 )
 

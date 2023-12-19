@@ -2,20 +2,21 @@
 # %%
 import numpy as np
 import pypulseq as pp
-
+from math import pi
 from console.utilities.sequences.system_settings import system
+# %%
 
 # Definition of constants
 ADC_DURATION = 4e-3
 
 
 def constructor(
-    n_steps: int = 10,
-    max_flip_angle: float = 5 * np.pi / 4,
+    n_steps: int = 1,
     repetition_time: float = 4,
     rf_duration: float = 200e-6,
-    use_sinc: bool = False,
-) -> tuple[pp.Sequence, np.ndarray]:
+    flip_angle_range=(-pi/4, pi/4),
+    pulse_type: str = "sinc", 
+    ) -> tuple[pp.Sequence, np.ndarray]:
     """Construct transmit adjust sequence.
 
     Parameters
@@ -46,17 +47,23 @@ def constructor(
     )
 
     # Define flip angles
-    flip_angles = np.linspace(start=0, stop=max_flip_angle, num=n_steps, endpoint=True)
+    # flip_angles = np.linspace(start=0, stop=max_flip_angle, num=n_steps, endpoint=True)
+    flip_angles = np.linspace(flip_angle_range[0], flip_angle_range[1], n_steps, endpoint=True)
 
     for angle in flip_angles:
-        if use_sinc:
+    
+        if pulse_type == "sinc":
             rf_90 = pp.make_sinc_pulse(system=system, flip_angle=angle, duration=rf_duration, apodization=0.5)
-        else:
-            rf_90 = pp.make_block_pulse(system=system, flip_angle=angle, duration=rf_duration)
 
+        elif pulse_type == "block":
+            rf_90 = pp.make_block_pulse(system=system, flip_angle=angle, duration=rf_duration)
+        else:
+                raise ValueError("Invalid pulse_type. Choose 'sinc', 'block', or 'trap'.")
+        
         seq.add_block(rf_90)
         seq.add_block(adc)
         seq.add_block(pp.make_delay(repetition_time))
+        # seq.plot()
 
         # Check sequence timing in each iteration
         check_passed, err = seq.check_timing()
@@ -67,6 +74,6 @@ def constructor(
 
 
 # %%
-# seq, _ = constructor()
-# seq.plot()
+seq, _ = constructor()
+seq.plot()
 # %%
