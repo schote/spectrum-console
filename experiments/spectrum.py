@@ -17,17 +17,12 @@ acq = AcquistionControl(configuration_file=configuration, console_log_level=logg
 
 # %%
 # Construct and plot sequence
-<<<<<<< HEAD
-# seq = sequences.se_spectrum.constructor(echo_time=12e-3, rf_duration=200e-6, use_sinc=False)
-seq = sequences.fid_spectrum.constructor(rf_duration=200e-6, time_bw_product=4, adc_duration=2e-3, pulse_type="sinc")
-=======
 # seq = sequences.se_spectrum.constructor(
 #     echo_time=20e-3,
 #     rf_duration=200e-6,
 #     use_sinc=False
 # )
 seq = sequences.se_spectrum_dl.constructor(rf_duration=200e-6, use_sinc=False, adc_ro_duration=4e-3, adc_noise_duration=100e-3)
->>>>>>> 69d9da924deb30a4194f4e36b0c027bf6a6002f7
 
 # Optional:
 acq.seq_provider.from_pypulseq(seq)
@@ -36,30 +31,17 @@ fig, ax = plot_unrolled_sequence(seq_unrolled)
 
 # %%
 # Larmor frequency:
-<<<<<<< HEAD
-f_0 = 2036468.75
-=======
 # f_0 = 2038555   # Berlin system
 f_0 = 2039505
 # f_0 = 1964690.0   # Leiden system
->>>>>>> 69d9da924deb30a4194f4e36b0c027bf6a6002f7
 
 # Define acquisition parameters
 params = AcquisitionParameter(
     larmor_frequency=f_0,
-<<<<<<< HEAD
-    b1_scaling=4.5,
-    adc_samples=320,
-    gradient_offset=Dimensions(0, 0, 0),
-    num_averages=1,
-=======
-    b1_scaling=2.2, # 8 cm phantom
-    # b1_scaling=6.3,
-     decimation=100,
-    num_averages=10,
-    averaging_delay=1,
->>>>>>> 69d9da924deb30a4194f4e36b0c027bf6a6002f7
+    b1_scaling=2.1, # 8 cm phantom
+    # decimation=200,
 )
+
 
 # Perform acquisition
 acq_data: AcquisitionData = acq.run(parameter=params, sequence=seq)
