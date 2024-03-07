@@ -34,7 +34,7 @@ seq = se_spectrum.constructor(
 
 # %%
 # Larmor frequency:
-f_0 = 1964628.0
+f_0 = 1964328.0
 
 params = AcquisitionParameter(
     larmor_frequency=f_0,

@@ -21,7 +21,7 @@ from console.utilities.snr import signal_to_noise_ratio
 # %%
 # Create acquisition control instance
 configuration = "../../device_config.yaml"
-acq = AcquisitionControl(configuration_file=configuration, console_log_level=logging.DEBUG, file_log_level=logging.DEBUG)
+acq = AcquisitionControl(configuration_file=configuration, console_log_level=logging.ERROR, file_log_level=logging.DEBUG)
 
 # %%
 # FID
@@ -46,7 +46,7 @@ def run_fid(f0, shims):
     """Call the FID sequence with the specified shims."""
     params = AcquisitionParameter(
         larmor_frequency=f0,
-        b1_scaling=3.4,
+        b1_scaling=3.56,
         decimation=1000,
         gradient_offset=Dimensions(x=shims[0], y=shims[1], z=shims[2]),)
 
@@ -60,10 +60,10 @@ num_dummies = 3     #Dummies to avoid saturation effects biasing the first FID m
 
 
 shims_current =  [0.0,0.0,0.0] #temporary, with new offset implementation read the current global shims
-
+shims_current = [0.051548071717843424, 0.04125423431396485, 0.00711740255355835]
 # %%
 # Larmor frequency:
-f_0 = 1964648.0
+f_0 = 1964188.0
 
 shim_range = start_range
 shims_best = shims_current
