@@ -1,6 +1,8 @@
 """Constructor for 3D TSE Imaging sequence.
 
+TODO: add different trajectories
 TODO: add sampling patterns (elliptical masks, partial fourier, CS)
+TODO: add dummy scans
 TODO: add optional inversion pulse
 TODO: add optional variable refocussing pulses (pass list rather than float)
 TODO: move trajectory calculation to seperate file to sharew with other imaging experiments (needed?)
@@ -22,7 +24,7 @@ def constructor(
     echo_time: float = 15e-3,
     repetition_time: float = 600e-3,
     etl: int = 7,
-    dummies: int = 0,
+    dummies: int = 3,
     rf_duration: float = 400e-6,
     ramp_duration:float = 200e-6,
     gradient_correction: float = 0.,
@@ -30,15 +32,11 @@ def constructor(
     fov: Dimensions = default_fov,
     n_enc: Dimensions = default_encoding,
     echo_shift: float = 0.0,
-    trajectory: str = "in-out",
+    trajectrory: str = "in-out",
     excitation_angle: float = pi/2,
     excitation_phase: float = 0.,
     refocussing_angle: float = pi,
     refocussing_phase: float = pi/2,
-    inversion_pulse: bool = False,
-    inversion_time: float = 50e-3,
-    inversion_angle: float = pi,
-    inversion_phase: float = 0.,
     channel_ro: str = "y",
     channel_pe1: str = "z",
     channel_pe2: str = "x",
@@ -54,7 +52,7 @@ def constructor(
     etl, optional
         Echo train length, by default 7
     dummies, optional
-        Number of dummy shots to acquire, default is 0
+        Number of dummies to perform before starting aquisition, by default 3
     rf_duration, optional
         Duration of the RF pulses (90 and 180 degree), by default 400e-6
     gradient_correction, optional
@@ -95,7 +93,7 @@ def constructor(
     if len(channel_pe1) >1 or len(channel_pe1)==0:
         channel_valid = False
         print("Invalid pe1 channel: %s"%(channel_pe1))
-    if len(channel_pe2) >1 or len(channel_pe2)==0:
+    if len(channel_pe1) >1 or len(channel_pe2)==0:
         channel_valid = False
         print("Invalid pe2 channel: %s"%(channel_pe2))
 
@@ -144,46 +142,14 @@ def constructor(
     pe0_pos = np.arange(n_enc_pe1)
     pe1_pos = np.arange(n_enc_pe2)
 
-    pe_points = np.stack([grid.flatten() for grid in np.meshgrid(pe1, pe2)], axis=-1)
-    pe_positions = np.stack([grid.flatten() for grid in np.meshgrid(pe0_pos, pe1_pos)], axis=-1)
+    pe_traj = np.stack([grid.flatten() for grid in np.meshgrid(pe1, pe2)], axis=-1)
+    pe_pos = np.stack([grid.flatten() for grid in np.meshgrid(pe0_pos, pe1_pos)], axis=-1)
 
-    pe_mag = np.sum(np.square(pe_points), axis = -1) #calculate magnitude of all gradient combinations
+    pe_mag = np.sum(np.square(pe_traj), axis = -1) #calculate magnitude of all gradient combinations
     pe_mag_sorted = np.argsort(pe_mag)
 
-    if trajectory.lower() == "out-in":
-        pe_mag_sorted = np.flip(pe_mag_sorted)
-
-    pe_traj = pe_points[pe_mag_sorted,:] #sort the points based on magnitude
-    pe_order = pe_positions[pe_mag_sorted,:] #kspace position for each of the gradients
-
-    if trajectory.lower() == 'linear':
-        center_pos = 1/2                                          #where the center of kspace should be in the echo train
-        num_points = np.size(pe_mag_sorted)
-        linear_pos = np.zeros(num_points, dtype = int) - 10
-        center_point = int(np.round(np.size(pe_mag)*center_pos))
-        odd_indices = 1
-        even_indices = 1
-        linear_pos[center_point] = pe_mag_sorted[0]
-        for idx in range(1,num_points):
-            #check if its in bounds first
-            if center_point - (idx+1)/2 >=0 and idx%2:
-                k_idx = center_point - odd_indices
-                odd_indices += 1
-            elif center_point+ idx/2 < num_points and idx%2 == 0:
-                k_idx = center_point + even_indices
-                even_indices += 1
-            elif center_point - (idx+1)/2 < 0 and idx%2:
-                k_idx = center_point + even_indices
-                even_indices += 1
-            elif center_point+ idx/2 >= num_points and idx%2 == 0:
-                k_idx = center_point - odd_indices
-                odd_indices += 1
-            else:
-                print("Sorting error")
-            linear_pos[k_idx] = pe_mag_sorted[idx]
-
-        pe_traj = pe_points[linear_pos,:] #sort the points based on magnitude
-        pe_order = pe_positions[linear_pos,:] #kspace position for each of the gradients
+    pe_traj = pe_traj[pe_mag_sorted,:] #sort the points based on magnitude
+    pe_order = pe_pos[pe_mag_sorted,:] #kspace position for each of the gradients
 
     #calculate the required gradient area for each k-point
     pe_traj[:, 0] /= fov_pe1
@@ -202,13 +168,12 @@ def constructor(
     # Definition of RF pulses
     rf_90 = pp.make_block_pulse(system=system, flip_angle=excitation_angle, phase_offset = excitation_phase, duration=rf_duration, use="excitation")
     rf_180 = pp.make_block_pulse(system=system, flip_angle=refocussing_angle,phase_offset =refocussing_phase,duration=rf_duration, use="refocusing")
-    if inversion_pulse:
-        rf_inversion = pp.make_block_pulse(system=system, flip_angle=inversion_angle,phase_offset =refocussing_phase,duration=rf_duration, use="refocusing")
 
     # ADC duration
     adc_duration = n_enc_ro / ro_bandwidth
 
     # Define readout gradient and prewinder
+
     grad_ro = pp.make_trapezoid(
         channel=channel_ro,
         system=system,
@@ -256,55 +221,58 @@ def constructor(
     tau_2 = (echo_time - rf_duration - adc_duration) / 2 - 2*gradient_correction - ramp_duration - rf_180.ringdown_time - ro_pre_duration+echo_shift
     # Delay duration between readout and Gy, Gz gradient rephaser
     tau_3 = (echo_time - rf_duration - adc_duration) / 2 - ramp_duration - rf_180.delay - ro_pre_duration-echo_shift
+    # Delay between echo trains
+    tr_delay = repetition_time - echo_time*etl - adc_duration / 2 - rf_90.delay
 
-    for dummy in range(dummies):
-        if inversion_pulse:
-            seq.add_block(rf_inversion)
-            seq.add_block(pp.make_delay(raster(val=inversion_time - rf_duration, precision=system.grad_raster_time)))
+
+    for idx in range(dummies):
+        delay_90_180    = echo_time/2 - rf_duration
+        delay_180_180   = echo_time - rf_duration
+        rep_delay       = repetition_time - delay_90_180 - delay_180_180
+
         seq.add_block(rf_90)
-        seq.add_block(pp.make_delay(raster(val=echo_time/2 - rf_duration, precision=system.grad_raster_time)))
-        for idx in range(etl):
-            seq.add_block(rf_180)
-            seq.add_block(pp.make_delay(raster(val=echo_time - rf_duration, precision=system.grad_raster_time)))
-        if inversion_pulse:
-            seq.add_block(pp.make_delay(raster(val=repetition_time - (etl+0.5)*echo_time - rf_duration - inversion_time, precision=system.grad_raster_time)))
-        else:
-            seq.add_block(pp.make_delay(raster(val=repetition_time - (etl+0.5)*echo_time - rf_duration, precision=system.grad_raster_time)))
+        seq.add_block(pp.make_delay(raster(val=delay_90_180, precision=system.grad_raster_time)))
+        for shot in range(etl):
+                seq.add_block(rf_180)
+                seq.add_block(pp.make_delay(raster(val=delay_180_180, precision=system.grad_raster_time)))
+        seq.add_block(pp.make_delay(raster(val=rep_delay, precision=system.grad_raster_time)))
 
-    for train in trains:
-        if inversion_pulse:
-            seq.add_block(rf_inversion)
-            seq.add_block(pp.make_delay(raster(val=inversion_time - rf_duration, precision=system.grad_raster_time)))        
-        seq.add_block(rf_90)
-        seq.add_block(grad_ro_pre)
-        seq.add_block(pp.make_delay(raster(val=tau_1, precision=system.grad_raster_time)))
+    #Acquire shifted data after unshifted data
+    for idx in range(2):
+        echo_shift_time = (idx%2)*echo_shift
+        # Delay duration between Gy, Gz prephaser and readout
+        tau_2 = (echo_time - rf_duration - adc_duration) / 2 - 2*gradient_correction - ramp_duration - rf_180.ringdown_time - ro_pre_duration+echo_shift_time
+        # Delay duration between readout and Gy, Gz gradient rephaser
+        tau_3 = (echo_time - rf_duration - adc_duration) / 2 - ramp_duration - rf_180.delay - ro_pre_duration-echo_shift_time    
+        for train in trains:
+            seq.add_block(rf_90)
+            seq.add_block(grad_ro_pre)
+            seq.add_block(pp.make_delay(raster(val=tau_1, precision=system.grad_raster_time)))
 
-        for echo in train:
-            pe_1, pe_2 = echo
+            for echo in train:
+                pe_1, pe_2 = echo
 
-            seq.add_block(rf_180)
+                seq.add_block(rf_180)
 
-            seq.add_block(
-                pp.make_trapezoid(channel=channel_pe1, area=-pe_1, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration),
-                pp.make_trapezoid(channel=channel_pe2, area=-pe_2, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration)
-            )
+                seq.add_block(
+                    pp.make_trapezoid(channel=channel_pe1, area=-pe_1, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration),
+                    pp.make_trapezoid(channel=channel_pe2, area=-pe_2, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration)
+                )
 
-            seq.add_block(pp.make_delay(raster(val=tau_2, precision=system.grad_raster_time)))
+                seq.add_block(pp.make_delay(raster(val=tau_2, precision=system.grad_raster_time)))
 
-            seq.add_block(grad_ro, adc)
+                seq.add_block(grad_ro, adc)
 
-            seq.add_block(
-                pp.make_trapezoid(channel=channel_pe1, area=pe_1, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration),
-                pp.make_trapezoid(channel=channel_pe2, area=pe_2, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration)
-            )
+                seq.add_block(
+                    pp.make_trapezoid(channel=channel_pe1, area=pe_1, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration),
+                    pp.make_trapezoid(channel=channel_pe2, area=pe_2, duration=ro_pre_duration, system=system, rise_time=ramp_duration, fall_time=ramp_duration)
+                )
 
-            seq.add_block(pp.make_delay(raster(val=tau_3, precision=system.grad_raster_time)))
+                seq.add_block(pp.make_delay(raster(val=tau_3, precision=system.grad_raster_time)))
 
-        #recalculate TR each train because train length is not guaranteed to be constant
-        tr_delay = repetition_time - echo_time*len(train) - adc_duration / 2 - ro_pre_duration - tau_3 - rf_90.delay - rf_duration/2 - ramp_duration
-        if inversion_pulse:
-            tr_delay -= inversion_time
-        seq.add_block(pp.make_delay(raster(val=tr_delay, precision=system.block_duration_raster)))
+            #recalculate TR each train because train length is not guaranteed to be constant
+            tr_delay = repetition_time - echo_time*len(train) - adc_duration / 2 - ro_pre_duration - tau_3 - rf_90.delay - rf_duration/2 - ramp_duration
+            seq.add_block(pp.make_delay(raster(val=tr_delay, precision=system.block_duration_raster)))
 
     # Calculate some sequence measures
     train_duration_tr = (seq.duration()[0]) / len(trains)
@@ -332,9 +300,14 @@ def sort_kspace(raw_data: np.ndarray, trajectory: np.ndarray, kdims: list) -> np
         dimensions of kspace
     """
     n_avg, n_coil, _, n_ro = raw_data.shape
-    ksp = np.zeros((n_avg, n_coil, kdims[2], kdims[1] ,kdims[0]), dtype = complex)
+    ksp_unshifted   = np.zeros((n_avg, n_coil, kdims[2], kdims[1] ,kdims[0]), dtype = complex)
+    ksp_shifted     = np.zeros((n_avg, n_coil, kdims[2], kdims[1] ,kdims[0]), dtype = complex)
+
+    num_points = len(trajectory)
     for idx, kpt in enumerate(trajectory):
-        ksp[...,kpt[1],kpt[0],:] = raw_data[:,:,idx,:]
-    return ksp
+        ksp_unshifted[...,kpt[1],kpt[0],:] = raw_data[:,:,idx,:]
+        ksp_shifted[...,kpt[1],kpt[0],:] = raw_data[:,:,idx + num_points,:]
+
+    return ksp_unshifted, ksp_shifted
 
 # %%
