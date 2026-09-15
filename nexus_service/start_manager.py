@@ -3,12 +3,37 @@ import argparse
 import atexit
 import logging
 import os
+import signal
+import socket
+import sys
 from pathlib import Path
 
-from console.service.acquisition_manager import AcquisitionControlManager
 from console.spcm_control.acquisition_control import AcquisitionControl
+from nexus_service.acquisition_manager import AcquisitionControlManager, runtime_dir
 
-# acquisition_control: AcquisitionControl | None = None
+
+def ensure_socket_free(path: Path) -> None:
+    """Remove a socket file left behind by a crashed service, abort if a service is listening on it.
+
+    Parameters
+    ----------
+    path
+        Path of the unix domain socket of the acquisition service.
+
+    Raises
+    ------
+    RuntimeError
+        If another acquisition service is already listening on the socket.
+    """
+    if not path.exists():
+        return
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+        try:
+            probe.connect(str(path))
+        except ConnectionRefusedError:
+            path.unlink()
+            return
+    raise RuntimeError(f"A nexus service is already running on {path}.")
 
 
 def main():
@@ -28,27 +53,6 @@ def main():
         default=os.path.join(Path.home(), "nexus-console"),
         help="Directory to store all the acquisition data acquired during the session.",
     )
-    parser.add_argument(
-        "-k",
-        "--authkey",
-        type=str,
-        default=b"secretkey",
-        help="Manager process authentication key, must be a bytestring",
-    )
-    parser.add_argument(
-        "-a",
-        "--address",
-        type=str,
-        default="localhost",
-        help="Manager process connection address",
-    )
-    parser.add_argument(
-        "-p",
-        "--port",
-        type=int,
-        default=50000,
-        help="Manager process connection port",
-    )
     # Note, XIO lines have a pull-up -> XIO output is temporarily high when opening the cards:
     # https://github.com/schote/nexus-console/issues/54#issuecomment-2823593549
     parser.add_argument(
@@ -61,13 +65,17 @@ def main():
                         This is the case when starting the service because the cards are opened.",
     )
     args = parser.parse_args()
+
+    # Validate the runtime directory and free the socket before any hardware is touched
+    address = runtime_dir() / "nexus.sock"
+    ensure_socket_free(address)
+
     if not args.no_verify:
-        input("\n[neXus] Before starting the setup, confirm that all the amplifiers are turned off.\
+        input("\n[nexus] Before starting the setup, confirm that all the amplifiers are turned off.\
             \nPress Enter to continue...")
-    print("\n[neXus] Setting up the acquisition control...\n")
+    print("\n[nexus] Setting up the acquisition control...\n")
 
     # Setup global acquisition control with argparse arguments
-    # global acquisition_control
     acquisition_control = AcquisitionControl(
         configuration_file=args.device_config,
         nexus_data_dir=args.sessions_folder,
@@ -77,26 +85,31 @@ def main():
 
     manager = AcquisitionControlManager(
         callable_acq_control=lambda: acquisition_control,
-        address=(args.address, args.port),
-        authkey=args.authkey,
+        address=address,
     )
 
     server = manager.get_server()
+    # Every account may use the console, so every account must be able to connect
+    address.chmod(0o666)
 
     def shutdown_handler():
         try:
-            print("\n[neXus] Shutting down nexus server...\n")
+            print("\n[nexus] Shutting down nexus server...\n")
             if acquisition_control:
                 acquisition_control.__del__()
-                print("[neXus] Acquisition control shutdown successfully.")
+                print("[nexus] Acquisition control shutdown successfully.")
         except Exception as e:
-            print(f"[neXus] Error during shutdown: {e}")
+            print(f"[nexus] Error during shutdown: {e}")
         finally:
-            print("[neXus] Shutdown complete.")
+            # The socket file itself is removed by the finalizer of the multiprocessing listener
+            (runtime_dir() / "authkey").unlink(missing_ok=True)
+            print("[nexus] Shutdown complete.")
 
     atexit.register(shutdown_handler)
+    # Run the atexit handlers on SIGTERM (systemctl stop) as well, otherwise socket and key would be left behind
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
-    print(f"\n[neXus] AcquisitionControlManager >> Server started on port {args.port}...\n")
+    print(f"\n[nexus] AcquisitionControlManager >> Server started on {address}...\n")
     server.serve_forever()
 
 
